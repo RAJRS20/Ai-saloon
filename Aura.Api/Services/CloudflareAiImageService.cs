@@ -33,7 +33,8 @@ public class CloudflareAiImageService
     private const int TargetSize = 512;
 
     // Fraction of image height treated as the "hair zone" (white mask region)
-    private const double HairZoneFraction = 0.45;
+    // 0.52 covers top of head down through forehead & temples to replace bangs
+    private const double HairZoneFraction = 0.52;
 
     public CloudflareAiImageService(
         IOptions<CloudflareAiOptions> options,
@@ -66,12 +67,12 @@ public class CloudflareAiImageService
         var payload = new
         {
             prompt,
-            negative_prompt = "blurry, bad quality, deformed face, ugly face, wrong anatomy, extra limbs, missing limbs",
+            negative_prompt = "long messy hair, unkempt hair, long bangs, shaggy hair, unchanged original hair, blurry, bad quality, deformed face, ugly face, wrong anatomy",
             image = imageInts,
             mask  = maskInts,
-            num_steps     = _options.NumSteps,
-            guidance      = _options.Guidance,
-            strength      = 0.99f   // inpainting: paint the masked area fully
+            num_steps     = Math.Max(25, _options.NumSteps),
+            guidance      = 12.0f,  // High guidance forces SD to follow the new haircut prompt
+            strength      = 0.99f   // inpainting: repaint the masked hair area fully
         };
 
         var json = JsonSerializer.Serialize(payload);
@@ -101,18 +102,12 @@ public class CloudflareAiImageService
 
         _logger.LogInformation("Cloudflare returned {Len} bytes", responseBytes.Length);
 
-        // Guard against blank output (< 5KB for a 512x512 image is suspicious)
-        if (responseBytes.Length < 5000)
-        {
-            _logger.LogWarning("Response suspiciously small ({Len} bytes) — may be blank. Returning anyway.", responseBytes.Length);
-        }
-
         return responseBytes;
     }
 
     /// <summary>
     /// Decodes + resizes the source image to 512×512 PNG → int[].
-    /// Also generates a binary hair mask: top 45% white (change), rest black (preserve face).
+    /// Also generates a binary hair mask: top 52% white (change), rest black (preserve face).
     /// </summary>
     private static (int[] imageInts, int[] maskInts) PrepareImageAndMask(byte[] imageBytes)
     {
@@ -126,15 +121,13 @@ public class CloudflareAiImageService
         var imageInts = imgStream.ToArray().Select(b => (int)b).ToArray();
 
         // ── Hair mask ───────────────────────────────────────────────────────────
-        // White (255) = areas to repaint (top 45% = hair)
+        // White (255) = areas to repaint (top 52% = hair + forehead)
         // Black (0)   = areas to preserve (face, body)
         using var mask = new Image<L8>(TargetSize, TargetSize);
         mask.Mutate(ctx =>
         {
-            // Start fully black (everything preserved)
             ctx.Fill(new SixLabors.ImageSharp.Drawing.Processing.SolidBrush(Color.Black));
 
-            // Paint top 45% white = hair region to change
             int hairHeight = (int)(TargetSize * HairZoneFraction);
             ctx.Fill(
                 new SixLabors.ImageSharp.Drawing.Processing.SolidBrush(Color.White),
@@ -155,7 +148,7 @@ public class CloudflareAiImageService
             ? "natural dark hair"
             : $"{hairColor} hair";
 
-        return $"{hairstyleName} hairstyle, {colorPart}, {promptDetails}, " +
-               "high quality hair, realistic portrait, photorealistic, sharp detail";
+        return $"fresh short haircut, professional {hairstyleName} hairstyle, {colorPart}, {promptDetails}, " +
+               "short faded hair on sides, neat clean hair texture, sharp hairline, realistic barber haircut, 8k resolution, detailed hair";
     }
 }
