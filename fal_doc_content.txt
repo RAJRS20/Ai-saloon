@@ -1,0 +1,200 @@
+
+
+AURA AI — NEW AI HAIRSTYLE TRY-ON IMPLEMENTATION
+Fal.ai Hair Change • React • ASP.NET Core • MediaPipe
+1. Objective
+Replace the failing Gemini image-generation layer with a hairstyle-specific image-to-image service. The target is a photorealistic hairstyle visualization that keeps the same person, face, pose, clothing and background as much as possible while changing the hair.
+2. Recommended AI Provider
+Use fal.ai Hair Change as the first production integration. The current fal.ai documentation provides two relevant endpoints: fal-ai/image-editing/hair-change for free-form hairstyle prompts, and fal-ai/image-apps-v2/hair-change for structured hairstyle and hair-color choices. Both are image-to-image hair-change APIs.
+Primary endpoint: fal-ai/image-editing/hair-change
+Alternative structured endpoint: fal-ai/image-apps-v2/hair-change
+3. Architecture
+React + TypeScript      ↓Camera / Upload      ↓MediaPipe Face Landmarker      ↓Face quality validation      ↓ASP.NET Core Web API      ↓Image Storage      ↓fal.ai Hair Change      ↓Generated Result      ↓Before / After UI
+4. Technology Stack
+Layer
+Technology
+Purpose
+Frontend
+React + TypeScript + Vite
+UI, camera, upload, result viewer
+UI
+Tailwind CSS
+Responsive interface
+Camera
+Browser getUserMedia / WebRTC
+Capture portrait
+Face analysis
+MediaPipe Face Landmarker
+Landmarks, framing and quality checks
+Backend
+ASP.NET Core Web API + C#
+Secure orchestration and business logic
+Database
+SQL Server + EF Core
+Users, hairstyles, jobs, results
+AI
+fal.ai Hair Change
+Photorealistic hairstyle editing
+Storage
+Cloudinary / Azure Blob / S3
+Source and generated images
+Auth
+ASP.NET Core Identity + JWT
+Accounts and protected APIs
+Hosting
+Vercel + Azure App Service/Container Apps
+Production deployment
+5. Critical Security Rule
+Never expose FAL_KEY in React or any VITE_* variable. fal.ai's current documentation explicitly recommends a server-side proxy for browser applications. Keep the key only in ASP.NET Core environment configuration.
+6. Project Structure
+aura-frontend/  src/    components/      CameraCapture.tsx      FaceGuide.tsx      HairstyleGrid.tsx      HairstyleCard.tsx      GenerationProgress.tsx      BeforeAfter.tsx    pages/      Home.tsx      TryOn.tsx      Result.tsx    services/      api.ts      tryOnService.ts    hooks/      useFaceLandmarker.ts    types/      hairstyle.ts    App.tsxAura.Api/  Controllers/    TryOnController.cs    HairstylesController.cs  Services/    TryOnService.cs    FalHairChangeService.cs    ImageStorageService.cs    FaceValidationService.cs  Data/    AppDbContext.cs  Models/  DTOs/  Options/  Program.cs
+7. Install and Run
+Frontend:
+npm create vite@latest aura-frontend -- --template react-tscd aura-frontendnpm installnpm install axios @mediapipe/tasks-visionnpm run dev
+Backend:
+dotnet new webapi -n Aura.Apicd Aura.Apidotnet add package Microsoft.EntityFrameworkCore.SqlServerdotnet add package Microsoft.EntityFrameworkCore.Toolsdotnet run
+8. Environment Variables
+ASP.NET Core:ConnectionStrings__DefaultConnection=YOUR_SQL_SERVER_CONNECTIONFal__ApiKey=YOUR_FAL_KEYStorage__Connection=YOUR_STORAGE_CONFIGReact:VITE_API_BASE_URL=http://localhost:5000
+9. User Flow
+1. Open Aura AI.
+2. Take a photo or upload one.
+3. Run face-quality checks locally.
+4. Choose a hairstyle.
+5. Optionally choose hair color.
+6. Send the photo and hairstyle ID to ASP.NET Core.
+7. Backend uploads/uses the source image URL.
+8. Backend submits the job to fal.ai.
+9. Store the provider request ID.
+10. Poll the job or process its webhook result.
+11. Store the generated image.
+12. Return the result to React.
+13. Show before/after and allow retry.
+10. AI Endpoints
+Free-form Hair Change:
+{  "image_url": "https://storage.example/source.jpg",  "prompt": "low fade with textured crop, natural black hair, realistic individual strands and natural hairline",  "output_format": "jpeg",  "aspect_ratio": "3:4"}
+Structured Hair Change:
+{  "image_url": "https://storage.example/source.jpg",  "target_hairstyle": "side_part",  "hair_color": "natural",  "aspect_ratio": "3:4"}
+The current structured endpoint documents hairstyle choices such as short_hair, medium_long_hair, long_hair, curly_hair, wavy_hair, bob_cut, pixie_cut, braids, buzz_cut, mohawk, bangs, side_part and middle_part, plus multiple hair-color choices.
+11. Realistic Hair Prompt
+Change ONLY the hairstyle.Selected hairstyle:{HAIRSTYLE_DESCRIPTION}Preserve the same person's identity and facial geometry.Do not change eyes, eyebrows, nose, lips, jaw, chin, ears, skin tone or apparent age.Do not change clothing, body, pose, camera angle or background.Create photorealistic human hair:- natural hairline- realistic density- individual strands- believable scalp transition- physically believable volume- realistic fade/blending- lighting and shadows matching the source photo- texture appropriate to the selected hairstyleThe final image must look like a real photograph of the same person after receiving the haircut.Avoid wigs, pasted overlays, plastic hair, CGI appearance, illustrations or distorted facial features.
+12. Hairstyle Catalog
+Low Fade + Textured Crop
+Mid Fade + Quiff
+High Fade + Pompadour
+Low Taper + Side Part
+French Crop
+Crew Cut
+Buzz Cut
+Slick Back
+Curly Top + Fade
+Messy Textured Hair
+Medium Layered
+Long Wavy
+Store a technical description for each style in SQL rather than sending only a name to the model.
+13. Backend Provider Abstraction
+ITryOnProvider   └── GenerateHairAsync(...)FalHairChangeService : ITryOnProvider   ├── validate request   ├── submit fal.ai job   ├── track request ID   ├── fetch result   └── return result URLFuture providers:GeminiHairServiceCustomGpuHairService
+This prevents Aura from being locked to one AI provider.
+14. API Endpoints
+Method
+Endpoint
+Purpose
+GET
+/api/hairstyles
+List active styles
+POST
+/api/tryon/validate
+Validate portrait
+POST
+/api/tryon/generate
+Create generation job
+GET
+/api/tryon/{jobId}
+Get status/result
+POST
+/api/tryon/{jobId}/retry
+Retry failed job
+DELETE
+/api/tryon/{jobId}
+Delete result
+15. Job Flow
+POST /api/tryon/generate        ↓PENDING        ↓Submit fal.ai queue        ↓Store provider request ID        ↓GENERATING        ↓COMPLETED → result URLFailure → FAILED → Retry
+The current fal.ai documentation supports queue submission, status lookup and result retrieval and recommends queue/webhook patterns for longer-running jobs.
+16. Database
+Hairstyles: Id, Name, Slug, Description, PromptDetails, ProviderMode, ProviderStyle, IsActive, SortOrder.
+TryOnJobs: Id, UserId, HairstyleId, Status, ProviderRequestId, SourceImageUrl, ResultImageUrl, ErrorMessage, CreatedAt, CompletedAt.
+TryOnResults: Id, JobId, ResultUrl, ThumbnailUrl, CreatedAt.
+Users: standard Identity fields.
+17. Face Validation
+Exactly one face detected.
+Face large enough in the image.
+Eyes/major landmarks visible.
+Head rotation within acceptable range for MVP.
+Image not excessively blurred.
+Adequate lighting.
+Prefer full head/hair region visible.
+MediaPipe is for local guidance and validation. It is not the hair-generation model.
+18. Quality Rules for Realistic Results
+Use a clear front or 3/4 portrait.
+Keep the full head inside the capture frame.
+Use hairstyle-specific technical descriptions.
+Preserve identity and facial geometry.
+Match the original lighting and camera perspective.
+Use realistic hair density and hairline language.
+Allow regeneration because generative output varies.
+Maintain a fixed test-photo set for regression testing.
+19. Error Handling
+Error
+Meaning
+Action
+400
+Invalid image/input
+Show validation message
+401/403
+Bad provider credential
+Fix backend configuration
+429
+Rate limit
+Backoff/retry
+5xx
+Provider/server failure
+Mark failed and retry
+Timeout
+Long generation
+Use queue status
+No face
+Bad portrait
+Ask user to retake photo
+20. Privacy & Security
+Keep FAL_KEY server-side.
+Use HTTPS in production.
+Validate MIME type and maximum upload size.
+Use private/signed image URLs when appropriate.
+Delete temporary images according to your privacy policy.
+Do not use user photos for training without explicit permission.
+21. MVP Scope
+Camera/upload
+Face validation
+6–10 hairstyles
+fal.ai generation
+Job polling
+Result page
+Before/after slider
+Retry
+Basic authentication
+Save/delete result
+22. Do Not Build Yet
+30–60 FPS real-time hairstyle AR
+Training a custom hair model
+GPU inference infrastructure
+Complex 3D hair meshes
+Large recommendation ML system
+First make the photo-based result consistently realistic. Then build real-time AR as a separate phase.
+23. Future Real-Time Version
+Camera ↓Face landmarks + head pose ↓Hair/face segmentation ↓Depth/head estimation ↓Neural or 3D hair representation ↓GPU/WebGL/native rendering ↓Live hairstyle tracking
+24. Current Documentation References
+fal.ai Hair Change — image editing API: https://fal.ai/models/fal-ai/image-editing/hair-change/api
+fal.ai Hair Change — Image Apps v2 API: https://fal.ai/models/fal-ai/image-apps-v2/hair-change/api
+These current docs support the endpoint names, inputs, queue flow, file handling and API-key guidance used in this plan. Pricing/model behavior can change, so verify live pricing before launch.
+25. Final Migration Plan
+KEEP:React UIASP.NET CoreSQL ServerMediaPipeStorageAuthenticationREPLACE:Gemini-specific image generation serviceADD:FalHairChangeServiceITryOnProviderTryOnJobQueue/status handlingHairstyle prompt catalog
+This is a targeted migration, not a full rewrite. Your existing Aura project can remain the foundation.

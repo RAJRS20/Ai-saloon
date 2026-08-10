@@ -1,0 +1,27 @@
+# .NET build output
+Aura.Api/bin/
+Aura.Api/obj/
+Aura.Api/wwwroot/uploads/
+
+# Frontend build
+aura-frontend/dist/
+aura-frontend/node_modules/
+
+# Environment files — exclude real secrets from git
+aura-frontend/.env.local
+Aura.Api/appsettings.json
+Aura.Api/appsettings.Development.json
+
+# IDE
+.vs/
+.vscode/
+*.user
+*.suo
+
+# Temp files from setup
+extract_doc.js
+doc_content.txt
+
+# OS
+.DS_Store
+Thumbs.db
