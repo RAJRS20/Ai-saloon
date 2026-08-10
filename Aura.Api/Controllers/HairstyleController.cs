@@ -5,7 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace Aura.Api.Controllers;
 
 [ApiController]
-[Route("api/[controller]")]
+[Route("api/hairstyle")]
 public class HairstyleController : ControllerBase
 {
     private readonly IHairstyleService _service;

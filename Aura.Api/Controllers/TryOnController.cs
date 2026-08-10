@@ -8,7 +8,7 @@ using System.Security.Claims;
 namespace Aura.Api.Controllers;
 
 [ApiController]
-[Route("api/[controller]")]
+[Route("api/try-on")]
 public class TryOnController : ControllerBase
 {
     private readonly ITryOnService _tryOn;
