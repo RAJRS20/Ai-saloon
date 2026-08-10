@@ -5,17 +5,17 @@ import type { Hairstyle, TryOnJob, GenerationRequest } from '../types/hairstyle'
 
 export const getHairstyles = async (category?: string): Promise<Hairstyle[]> => {
   const params = category && category !== 'All' ? { category } : {};
-  const { data } = await api.get<Hairstyle[]>('/Hairstyle', { params });
+  const { data } = await api.get<Hairstyle[]>('/hairstyle', { params });
   return data;
 };
 
 export const getHairstyle = async (id: number): Promise<Hairstyle> => {
-  const { data } = await api.get<Hairstyle>(`/Hairstyle/${id}`);
+  const { data } = await api.get<Hairstyle>(`/hairstyle/${id}`);
   return data;
 };
 
 export const getCategories = async (): Promise<string[]> => {
-  const { data } = await api.get<string[]>('/Hairstyle/categories');
+  const { data } = await api.get<string[]>('/hairstyle/categories');
   return data;
 };
 
@@ -24,7 +24,7 @@ export const getCategories = async (): Promise<string[]> => {
 export const validatePhoto = async (imageFile: File): Promise<{ isValid: boolean; issues: string[] }> => {
   const formData = new FormData();
   formData.append('image', imageFile);
-  const { data } = await api.post('/TryOn/validate', formData, {
+  const { data } = await api.post('/try-on/validate', formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
   });
   return data;
@@ -40,30 +40,30 @@ export const generateTryOn = async (
   if (request.hairColor) formData.append('hairColor', request.hairColor);
   formData.append('quality', request.quality || 'high');
 
-  const { data } = await api.post<TryOnJob>('/TryOn/generate', formData, {
+  const { data } = await api.post<TryOnJob>('/try-on/generate', formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
   });
   return data;
 };
 
 export const getJobStatus = async (jobId: string): Promise<TryOnJob> => {
-  const { data } = await api.get<TryOnJob>(`/TryOn/${jobId}`);
+  const { data } = await api.get<TryOnJob>(`/try-on/${jobId}`);
   return data;
 };
 
 export const regenerateTryOn = async (jobId: string, hairstyleId?: number): Promise<TryOnJob> => {
-  const { data } = await api.post<TryOnJob>('/TryOn/regenerate', { jobId, hairstyleId });
+  const { data } = await api.post<TryOnJob>('/try-on/regenerate', { jobId, hairstyleId });
   return data;
 };
 
 // ─── Auth ─────────────────────────────────────────────────────────────────────
 
 export const login = async (email: string, password: string) => {
-  const { data } = await api.post('/Auth/login', { email, password });
+  const { data } = await api.post('/auth/login', { email, password });
   return data;
 };
 
 export const register = async (email: string, password: string, displayName: string) => {
-  const { data } = await api.post('/Auth/register', { email, password, displayName });
+  const { data } = await api.post('/auth/register', { email, password, displayName });
   return data;
 };
