@@ -76,10 +76,7 @@ builder.Services.AddAuthentication(opts =>
 // ─── CORS ─────────────────────────────────────────────────────────────────────
 builder.Services.AddCors(opts => opts.AddDefaultPolicy(policy =>
     policy
-        .WithOrigins(
-            "http://localhost:5173",
-            "http://localhost:3000",
-            builder.Configuration["Frontend:BaseUrl"] ?? "https://your-app.vercel.app")
+        .SetIsOriginAllowed(_ => true)
         .AllowAnyHeader()
         .AllowAnyMethod()
         .AllowCredentials()
