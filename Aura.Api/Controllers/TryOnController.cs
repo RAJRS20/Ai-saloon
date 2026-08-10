@@ -121,12 +121,19 @@ public class TryOnController : ControllerBase
             );
         }
 
+        var scheme = Request.Headers["X-Forwarded-Proto"].FirstOrDefault() ?? Request.Scheme;
+        var host = Request.Headers["X-Forwarded-Host"].FirstOrDefault() ?? Request.Host.Value;
+        if (scheme == "http" && (Request.IsHttps || !HttpContext.RequestServices.GetRequiredService<IWebHostEnvironment>().IsDevelopment()))
+        {
+            scheme = "https";
+        }
+
         string? sourceUrl = job.SourceImagePath != null
-            ? $"{Request.Scheme}://{Request.Host}/uploads/{job.SourceImagePath.Replace('\\', '/')}"
+            ? $"{scheme}://{host}/uploads/{job.SourceImagePath.Replace('\\', '/')}"
             : null;
 
         string? resultUrl = job.ResultImagePath != null
-            ? $"{Request.Scheme}://{Request.Host}/uploads/{job.ResultImagePath.Replace('\\', '/')}"
+            ? $"{scheme}://{host}/uploads/{job.ResultImagePath.Replace('\\', '/')}"
             : null;
 
         var statusString = job.Status switch
