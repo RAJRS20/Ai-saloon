@@ -20,8 +20,26 @@ builder.Services.Configure<HuggingFaceOptions>(builder.Configuration.GetSection(
 builder.Services.Configure<CloudflareAiOptions>(builder.Configuration.GetSection(CloudflareAiOptions.Section));
 
 // ─── Database ─────────────────────────────────────────────────────────────────
-builder.Services.AddDbContext<AppDbContext>(opts =>
-    opts.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+var rawConn = builder.Configuration["DATABASE_URL"]
+    ?? builder.Configuration["POSTGRES_URL"]
+    ?? builder.Configuration.GetConnectionString("DefaultConnection")
+    ?? string.Empty;
+
+bool isPostgres = rawConn.StartsWith("postgres://", StringComparison.OrdinalIgnoreCase)
+    || rawConn.StartsWith("postgresql://", StringComparison.OrdinalIgnoreCase)
+    || rawConn.Contains("Host=", StringComparison.OrdinalIgnoreCase);
+
+if (isPostgres)
+{
+    var connString = ConvertPostgresUrlToConnectionString(rawConn);
+    builder.Services.AddDbContext<AppDbContext>(opts =>
+        opts.UseNpgsql(connString));
+}
+else
+{
+    builder.Services.AddDbContext<AppDbContext>(opts =>
+        opts.UseSqlServer(rawConn));
+}
 
 // ─── Identity & Auth ─────────────────────────────────────────────────────────
 builder.Services.AddIdentity<ApplicationUser, IdentityRole>(opts =>
@@ -167,15 +185,34 @@ var app = builder.Build();
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
     try
     {
-        await db.Database.MigrateAsync();
+        if (db.Database.IsNpgsql())
+        {
+            logger.LogInformation("PostgreSQL detected — ensuring database schema exists...");
+            await db.Database.EnsureCreatedAsync();
+        }
+        else
+        {
+            logger.LogInformation("Applying EF Core migrations...");
+            await db.Database.MigrateAsync();
+        }
         await SeedData.SeedAsync(db);
+        logger.LogInformation("Database initialized and seeded successfully.");
     }
     catch (Exception ex)
     {
-        var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
-        logger.LogWarning(ex, "Database migration failed — running without database. Ensure SQL Server is configured.");
+        logger.LogWarning(ex, "Database initialization failed. Attempting EnsureCreated fallback...");
+        try
+        {
+            await db.Database.EnsureCreatedAsync();
+            await SeedData.SeedAsync(db);
+        }
+        catch (Exception fallbackEx)
+        {
+            logger.LogError(fallbackEx, "Database fallback initialization also failed.");
+        }
     }
 }
 
@@ -209,5 +246,28 @@ public class SlugifyParameterTransformer : Microsoft.AspNetCore.Routing.IOutboun
 {
     public string? TransformOutbound(object? value)
         => value?.ToString()?.ToLowerInvariant();
+}
+
+public partial class Program
+{
+    public static string ConvertPostgresUrlToConnectionString(string url)
+    {
+        if (string.IsNullOrWhiteSpace(url)) return string.Empty;
+        if (!url.StartsWith("postgres://", StringComparison.OrdinalIgnoreCase) &&
+            !url.StartsWith("postgresql://", StringComparison.OrdinalIgnoreCase))
+        {
+            return url;
+        }
+
+        var uri = new Uri(url);
+        var userInfo = uri.UserInfo.Split(':');
+        var user = userInfo.Length > 0 ? Uri.UnescapeDataString(userInfo[0]) : "";
+        var pass = userInfo.Length > 1 ? Uri.UnescapeDataString(userInfo[1]) : "";
+        var host = uri.Host;
+        var port = uri.Port > 0 ? uri.Port : 5432;
+        var database = uri.AbsolutePath.TrimStart('/');
+
+        return $"Host={host};Port={port};Database={database};Username={user};Password={pass};Ssl Mode=Prefer;";
+    }
 }
 
