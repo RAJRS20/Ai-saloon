@@ -126,10 +126,10 @@ builder.Services.AddHttpClient("cloudflare", client =>
 // ─── Application Services ─────────────────────────────────────────────────────
 builder.Services.AddScoped<IHairstyleService, HairstyleService>();
 builder.Services.AddSingleton<ITryOnService, TryOnService>();
-// ── Active AI Provider: fal.ai Hair Change (photorealistic hair-specific AI) ──
-builder.Services.AddScoped<ITryOnProvider, FalHairChangeService>();
-// ── Inactive providers (registered for easy switching) ────────────────────────
+// ── Active AI Provider: Cloudflare Workers AI ─────────────────────────────────
 builder.Services.AddScoped<CloudflareAiImageService>();
+builder.Services.AddScoped<ITryOnProvider, CloudflareAiTryOnProvider>();
+// ── Inactive providers ────────────────────────────────────────────────────────
 builder.Services.AddScoped<FalHairChangeService>();
 builder.Services.AddScoped<HuggingFaceImageService>();
 builder.Services.AddScoped<HuggingFaceTryOnProvider>();

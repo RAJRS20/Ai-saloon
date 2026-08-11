@@ -67,12 +67,12 @@ public class CloudflareAiImageService
         var payload = new
         {
             prompt,
-            negative_prompt = "long messy hair, unkempt hair, long bangs, shaggy hair, unchanged original hair, blurry, bad quality, deformed face, ugly face, wrong anatomy",
+            negative_prompt = "blurry, bad quality, deformed face, black image, black background, dark image, overexposed, underexposed",
             image = imageInts,
             mask  = maskInts,
-            num_steps     = Math.Clamp(_options.NumSteps > 0 ? _options.NumSteps : 20, 1, 20),
-            guidance      = 12.0f,  // High guidance forces SD to follow the new haircut prompt
-            strength      = 0.99f   // inpainting: repaint the masked hair area fully
+            num_steps = Math.Clamp(_options.NumSteps > 0 ? _options.NumSteps : 20, 1, 20),
+            guidance  = 7.5f,  // Standard guidance scale — reduces risk of over-saturation/black
+            strength  = 0.75f  // Moderate strength — enough to change hair without destroying face
         };
 
         var json = JsonSerializer.Serialize(payload);
