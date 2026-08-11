@@ -233,7 +233,17 @@ if (!app.Environment.IsDevelopment())
 {
     app.UseHttpsRedirection();
 }
-app.UseStaticFiles(); // serves wwwroot/uploads/
+// Serve static files (uploads) — use same webRoot fallback as ImageStorageService
+// because env.WebRootPath is null on Railway when no wwwroot folder exists pre-deploy.
+var webRootPath = app.Environment.WebRootPath
+    ?? Path.Combine(app.Environment.ContentRootPath, "wwwroot");
+Directory.CreateDirectory(Path.Combine(webRootPath, "uploads", "sources"));
+Directory.CreateDirectory(Path.Combine(webRootPath, "uploads", "results"));
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(webRootPath),
+    RequestPath = ""
+});
 app.UseCors();
 app.UseAuthentication();
 app.UseAuthorization();
