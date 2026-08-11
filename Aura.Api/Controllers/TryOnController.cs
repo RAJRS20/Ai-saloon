@@ -55,43 +55,91 @@ public class TryOnController : ControllerBase
         _logger.LogInformation("Generate called: ContentType={CT}, Length={Length}, HairstyleId={HId}",
             image?.ContentType, image?.Length, request?.HairstyleId);
 
+        _logger.LogInformation(
+            "Generate request state: ModelStateValid={ModelStateValid}, HairstyleId={HId}, HairColor={HairColor}, Quality={Quality}, ImagePresent={ImagePresent}, ImageFileName={ImageFileName}",
+            ModelState.IsValid,
+            request?.HairstyleId,
+            request?.HairColor,
+            request?.Quality,
+            image != null,
+            image?.FileName);
+
+        if (!ModelState.IsValid)
+        {
+            var modelStateErrors = ModelState
+                .Where(kvp => kvp.Value?.Errors.Count > 0)
+                .ToDictionary(kvp => kvp.Key, kvp => kvp.Value!.Errors.Select(e => e.ErrorMessage).ToArray());
+
+            _logger.LogWarning("Generate rejected: ModelState invalid. Errors={@ModelStateErrors}", modelStateErrors);
+            return BadRequest(new { error = "Invalid request.", details = modelStateErrors });
+        }
+
         if (image == null || image.Length == 0)
         {
-            _logger.LogWarning("Generate rejected: No image provided.");
-            return BadRequest("No image provided.");
+            _logger.LogWarning("Generate rejected: No image provided. ImageIsNull={ImageIsNull}, ImageLength={ImageLength}",
+                image == null, image?.Length);
+            var response = "No image provided.";
+            _logger.LogError("Generate returning 400. Error={Error}", response);
+            return BadRequest(response);
         }
 
         var ct = image.ContentType?.ToLower() ?? "";
         if (!AllowedMimeTypes.Contains(ct) && !ct.StartsWith("image/"))
         {
             _logger.LogWarning("Generate rejected: Unsupported ContentType '{CT}'.", image.ContentType);
-            return BadRequest($"Unsupported image type '{image.ContentType}'.");
+            var response = $"Unsupported image type '{image.ContentType}'.";
+            _logger.LogError("Generate returning 400. Error={Error}", response);
+            return BadRequest(response);
         }
 
         if (image.Length > 20 * 1024 * 1024)
         {
             _logger.LogWarning("Generate rejected: Image size {Length} bytes exceeds 20MB limit.", image.Length);
-            return BadRequest("Image too large. Maximum 20MB.");
+            var response = "Image too large. Maximum 20MB.";
+            _logger.LogError("Generate returning 400. Error={Error}", response);
+            return BadRequest(response);
         }
 
         if (request == null || request.HairstyleId <= 0)
         {
             _logger.LogWarning("Generate rejected: Invalid HairstyleId {HId}.", request?.HairstyleId);
-            return BadRequest("Invalid hairstyle ID.");
+            var response = "Invalid hairstyle ID.";
+            _logger.LogError("Generate returning 400. Error={Error}", response);
+            return BadRequest(response);
         }
 
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
 
         try
         {
+            _logger.LogInformation(
+                "Generate processing job: HairstyleId={HId}, HairColor={HairColor}, Quality={Quality}, UserId={UserId}, ImageContentType={CT}, ImageLength={Length}",
+                request.HairstyleId, request.HairColor, request.Quality, userId, image.ContentType, image.Length);
+
             var job = await _tryOn.CreateJobAsync(
                 image, request.HairstyleId, request.HairColor, request.Quality, userId);
 
+            _logger.LogInformation("Generate succeeded: JobId={JobId}, Status={Status}. Returning 200.", job.JobId, job.Status);
             return Ok(MapJobToDto(job));
         }
         catch (ArgumentException ex)
         {
+            _logger.LogError(ex,
+                "Generate failed with ArgumentException. HairstyleId={HId}, HairColor={HairColor}, Quality={Quality}, UserId={UserId}, Message={Message}, StackTrace={StackTrace}, InnerException={InnerException}",
+                request.HairstyleId, request.HairColor, request.Quality, userId, ex.Message, ex.StackTrace, ex.InnerException?.ToString());
+
+            _logger.LogError("Generate returning 400. Error={Error}", ex.Message);
             return BadRequest(ex.Message);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex,
+                "Generate failed with unhandled exception. HairstyleId={HId}, HairColor={HairColor}, Quality={Quality}, UserId={UserId}, Message={Message}, StackTrace={StackTrace}, InnerException={InnerException}",
+                request.HairstyleId, request.HairColor, request.Quality, userId, ex.Message, ex.StackTrace, ex.InnerException?.ToString());
+
+            var response = "An unexpected error occurred while processing the request.";
+            _logger.LogError("Generate returning 500. Error={Error}", response);
+            return StatusCode(500, response);
         }
     }
 
