@@ -26,7 +26,10 @@ public class LocalImageStorageService : IImageStorageService
         IOptions<StorageOptions> options,
         ILogger<LocalImageStorageService> logger)
     {
-        _uploadsRoot = Path.Combine(env.WebRootPath, "uploads");
+        // WebRootPath is null on Railway (no pre-existing wwwroot) — fall back to
+        // ContentRootPath so Path.Combine never receives a null first argument.
+        var webRoot = env.WebRootPath ?? Path.Combine(env.ContentRootPath, "wwwroot");
+        _uploadsRoot = Path.Combine(webRoot, "uploads");
         _baseUrl = options.Value.LocalBaseUrl;
         _logger = logger;
 
