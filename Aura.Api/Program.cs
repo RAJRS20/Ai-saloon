@@ -126,17 +126,17 @@ builder.Services.AddHttpClient("cloudflare", client =>
 // ─── Application Services ─────────────────────────────────────────────────────
 builder.Services.AddScoped<IHairstyleService, HairstyleService>();
 builder.Services.AddSingleton<ITryOnService, TryOnService>();
-// ── Active AI Provider: Cloudflare Workers AI (free, 10k neurons/day) ────────────
-builder.Services.AddScoped<CloudflareAiImageService>();
-builder.Services.AddScoped<ITryOnProvider, CloudflareAiTryOnProvider>();
+// ── Active AI Provider: fal.ai Hair Change (photorealistic, reliable) ────────
+builder.Services.AddScoped<ITryOnProvider, FalHairChangeService>();
 // ── Inactive providers (registered for easy switching) ───────────────────────
+builder.Services.AddScoped<CloudflareAiImageService>();
+builder.Services.AddScoped<CloudflareAiTryOnProvider>();
 builder.Services.AddScoped<HuggingFaceImageService>();
 builder.Services.AddScoped<HuggingFaceTryOnProvider>();
 builder.Services.AddScoped<OpenAiImageService>();
 builder.Services.AddScoped<OpenAiTryOnProvider>();
 builder.Services.AddScoped<IGeminiImageService, GeminiImageService>();
 builder.Services.AddScoped<GeminiTryOnProvider>();
-builder.Services.AddScoped<FalHairChangeService>();
 builder.Services.AddScoped<SimulationHairService>();
 builder.Services.AddScoped<IImageStorageService, LocalImageStorageService>();
 
