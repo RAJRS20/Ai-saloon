@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface BeforeAfterProps {
@@ -16,7 +16,13 @@ export default function BeforeAfter({
 }: BeforeAfterProps) {
   const [sliderValue, setSliderValue] = useState(50);
   const [isInteracting, setIsInteracting] = useState(false);
+  const [afterError, setAfterError] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // Reset image error state if afterUrl changes
+  useEffect(() => {
+    setAfterError(false);
+  }, [afterUrl]);
 
   const updatePosition = useCallback((clientX: number) => {
     if (!containerRef.current) return;
@@ -47,10 +53,12 @@ export default function BeforeAfter({
     }
   };
 
+  const displayAfterUrl = (!afterError && afterUrl) ? afterUrl : beforeUrl;
+
   return (
     <div
       ref={containerRef}
-      className="relative w-full aspect-[3/4] rounded-3xl overflow-hidden select-none touch-none shadow-2xl border border-white/10 cursor-ew-resize group"
+      className="relative w-full aspect-[3/4] rounded-3xl overflow-hidden select-none touch-none shadow-xl border border-[#EBE6DE] bg-[#1E1B18] cursor-ew-resize group"
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
@@ -59,10 +67,11 @@ export default function BeforeAfter({
     >
       {/* After image (full width underneath) */}
       <img
-        src={afterUrl}
+        src={displayAfterUrl}
         alt="After hairstyle transformation"
         className="absolute inset-0 w-full h-full object-cover object-top pointer-events-none"
         draggable={false}
+        onError={() => setAfterError(true)}
       />
 
       {/* Before image (clipped to left side) */}
@@ -80,13 +89,13 @@ export default function BeforeAfter({
 
       {/* Center Divider line */}
       <div
-        className="absolute top-0 bottom-0 w-0.5 bg-white shadow-[0_0_16px_rgba(139,92,246,0.9)] pointer-events-none"
+        className="absolute top-0 bottom-0 w-0.5 bg-white shadow-[0_0_12px_rgba(255,107,53,0.8)] pointer-events-none"
         style={{ left: `${sliderValue}%`, transform: 'translateX(-50%)' }}
       >
         {/* Touch handle with arrows */}
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-white shadow-2xl border-2 border-violet-600 flex items-center justify-center gap-0.5 transition-transform group-active:scale-110">
-          <ChevronLeft className="w-4 h-4 text-violet-700 stroke-[3]" />
-          <ChevronRight className="w-4 h-4 text-violet-700 stroke-[3]" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-white shadow-xl border-2 border-[#FF6B35] flex items-center justify-center gap-0.5 transition-transform group-active:scale-110">
+          <ChevronLeft className="w-4 h-4 text-[#FF6B35] stroke-[3]" />
+          <ChevronRight className="w-4 h-4 text-[#FF6B35] stroke-[3]" />
         </div>
       </div>
 
@@ -97,18 +106,17 @@ export default function BeforeAfter({
         </span>
       </div>
       <div className="absolute top-3 right-3 pointer-events-none">
-        <span className="text-xs font-bold px-2.5 py-1 rounded-xl bg-violet-600/90 text-white backdrop-blur-md border border-violet-400/30 shadow-md">
+        <span className="text-xs font-bold px-2.5 py-1 rounded-xl bg-[#FF6B35] text-white backdrop-blur-md shadow-md">
           {afterLabel}
         </span>
       </div>
 
       {/* Interactive Drag Hint */}
       <div className="absolute bottom-3 left-0 right-0 flex justify-center pointer-events-none">
-        <span className="text-[11px] font-medium px-3 py-1 rounded-full bg-black/60 text-white/80 backdrop-blur-md border border-white/10 shadow-md animate-pulse">
+        <span className="text-[11px] font-medium px-3 py-1 rounded-full bg-black/60 text-white/90 backdrop-blur-md border border-white/10 shadow-md animate-pulse">
           Drag or tap to compare
         </span>
       </div>
     </div>
   );
 }
-

@@ -11,7 +11,12 @@ export default defineConfig({
     port: 5173,
     proxy: {
       '/api': {
-        target: 'http://localhost:5000',
+        target: 'https://ai-saloon-production.up.railway.app',
+        changeOrigin: true,
+        secure: false,
+      },
+      '/uploads': {
+        target: 'https://ai-saloon-production.up.railway.app',
         changeOrigin: true,
         secure: false,
       },

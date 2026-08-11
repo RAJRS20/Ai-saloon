@@ -26,7 +26,6 @@ export default function CameraCapture({ onCapture }: CameraCaptureProps) {
 
   const { qualityChecks, processFrame, faceCount } = useFaceLandmarker();
 
-  // Live face tracking on video
   useEffect(() => {
     if (mode !== 'camera' || !videoRef.current) return;
     const tick = () => {
@@ -42,7 +41,6 @@ export default function CameraCapture({ onCapture }: CameraCaptureProps) {
   const startCamera = useCallback(async (facing: 'user' | 'environment' = facingMode) => {
     setCameraError(null);
     setMode('camera');
-    // Stop any existing stream first
     if (streamRef.current) {
       streamRef.current.getTracks().forEach(t => t.stop());
     }
@@ -81,7 +79,6 @@ export default function CameraCapture({ onCapture }: CameraCaptureProps) {
     if (!videoRef.current || !canvasRef.current || isCapturing) return;
     setIsCapturing(true);
 
-    // 2-second quick countdown for mobile
     setCountdown(2);
     const tick = (n: number) => {
       if (n === 0) {
@@ -92,7 +89,6 @@ export default function CameraCapture({ onCapture }: CameraCaptureProps) {
         canvas.height = video.videoHeight;
         const ctx = canvas.getContext('2d')!;
         
-        // Flip horizontally if front-facing user camera for natural selfie photo
         if (facingMode === 'user') {
           ctx.translate(canvas.width, 0);
           ctx.scale(-1, 1);
@@ -135,8 +131,6 @@ export default function CameraCapture({ onCapture }: CameraCaptureProps) {
     setMode('preview');
   }, []);
 
-  // Track whether the blob URL was handed off to the parent — if so, the parent
-  // owns the lifetime of that URL and we must NOT revoke it on unmount.
   const handedOffRef = useRef(false);
 
   const handleConfirm = useCallback(() => {
@@ -147,7 +141,6 @@ export default function CameraCapture({ onCapture }: CameraCaptureProps) {
   }, [capturedFile, previewUrl, onCapture]);
 
   const handleRetake = useCallback(() => {
-    // Safe to revoke here — we're keeping the URL inside this component
     if (previewUrl && !handedOffRef.current) URL.revokeObjectURL(previewUrl);
     handedOffRef.current = false;
     setPreviewUrl(null);
@@ -156,59 +149,54 @@ export default function CameraCapture({ onCapture }: CameraCaptureProps) {
     stopCamera();
   }, [previewUrl, stopCamera]);
 
-  // Only run cleanup for the camera stream; do NOT revoke the blob URL on unmount
-  // if it was already passed to the parent via onCapture.
   const previewUrlRef = useRef<string | null>(null);
   useEffect(() => { previewUrlRef.current = previewUrl; }, [previewUrl]);
 
   useEffect(() => {
     return () => {
       stopCamera();
-      // Only revoke if we still own the URL (it wasn't handed off)
       if (!handedOffRef.current && previewUrlRef.current) {
         URL.revokeObjectURL(previewUrlRef.current);
       }
     };
   }, [stopCamera]);
 
-  const passedChecks = qualityChecks.filter(c => c.passed).length;
   const errorChecks = qualityChecks.filter(c => !c.passed && c.severity === 'error');
-  const warningChecks = qualityChecks.filter(c => !c.passed && c.severity === 'warning');
   const canCapture = errorChecks.length === 0 && faceCount === 1;
 
   return (
     <div className="flex flex-col items-center gap-4 sm:gap-6 w-full max-w-lg mx-auto">
-      {/* ── Mode: Choice ── */}
+      {/* Choice Mode */}
       {mode === 'choice' && (
         <div className="w-full fade-in-up">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 sm:gap-4">
-            {/* Camera button */}
+            {/* Camera Button */}
             <button
               id="btn-use-camera"
               onClick={() => startCamera('user')}
-              className="glass-card rounded-2xl p-6 sm:p-8 flex sm:flex-col items-center gap-4 sm:gap-4 border border-violet-500/20 hover:border-violet-500/60 active:scale-[0.98] transition-all group cursor-pointer text-left sm:text-center"
+              className="light-card rounded-2xl p-5 sm:p-6 flex flex-row sm:flex-col items-center gap-4 active:scale-[0.98] transition-all cursor-pointer text-left sm:text-center group"
             >
-              <div className="w-14 h-14 sm:w-16 sm:h-16 shrink-0 rounded-2xl bg-gradient-to-br from-violet-500/20 to-pink-500/20 border border-violet-500/30 flex items-center justify-center group-hover:scale-105 transition-transform shadow-md shadow-violet-600/10">
-                <Camera className="w-7 h-7 sm:w-8 sm:h-8 text-violet-400" />
+              <div className="w-14 h-14 shrink-0 rounded-2xl bg-[#FF6B35]/10 border border-[#FF6B35]/20 flex items-center justify-center group-hover:scale-105 transition-transform">
+                <Camera className="w-7 h-7 text-[#FF6B35]" />
               </div>
               <div>
-                <p className="font-bold text-white text-base sm:text-lg">Take Live Photo</p>
-                <p className="text-xs sm:text-sm text-gray-400 mt-0.5 sm:mt-1">Use camera with real-time face guidance</p>
+                <p className="font-bold text-[#1E1B18] text-base sm:text-lg">Take Live Photo</p>
+                <p className="text-xs text-[#787069] mt-0.5">Use camera with real-time face guidance</p>
               </div>
             </button>
 
-            {/* Upload button */}
+            {/* Upload Button */}
             <button
               id="btn-upload-photo"
               onClick={() => fileInputRef.current?.click()}
-              className="glass-card rounded-2xl p-6 sm:p-8 flex sm:flex-col items-center gap-4 sm:gap-4 border border-pink-500/20 hover:border-pink-500/60 active:scale-[0.98] transition-all group cursor-pointer text-left sm:text-center"
+              className="light-card rounded-2xl p-5 sm:p-6 flex flex-row sm:flex-col items-center gap-4 active:scale-[0.98] transition-all cursor-pointer text-left sm:text-center group"
             >
-              <div className="w-14 h-14 sm:w-16 sm:h-16 shrink-0 rounded-2xl bg-gradient-to-br from-pink-500/20 to-orange-500/20 border border-pink-500/30 flex items-center justify-center group-hover:scale-105 transition-transform shadow-md shadow-pink-600/10">
-                <Upload className="w-7 h-7 sm:w-8 sm:h-8 text-pink-400" />
+              <div className="w-14 h-14 shrink-0 rounded-2xl bg-[#FF6B35]/10 border border-[#FF6B35]/20 flex items-center justify-center group-hover:scale-105 transition-transform">
+                <Upload className="w-7 h-7 text-[#FF6B35]" />
               </div>
               <div>
-                <p className="font-bold text-white text-base sm:text-lg">Upload from Gallery</p>
-                <p className="text-xs sm:text-sm text-gray-400 mt-0.5 sm:mt-1">Choose portrait from your photos (JPG, PNG)</p>
+                <p className="font-bold text-[#1E1B18] text-base sm:text-lg">Upload from Gallery</p>
+                <p className="text-xs text-[#787069] mt-0.5">Choose portrait from your photos (JPG, PNG)</p>
               </div>
             </button>
           </div>
@@ -222,31 +210,31 @@ export default function CameraCapture({ onCapture }: CameraCaptureProps) {
             id="file-input-photo"
           />
 
-          {/* Photo guidelines */}
-          <div className="mt-4 sm:mt-6 glass-card-sm rounded-2xl p-4 sm:p-5 border border-white/5">
-            <div className="flex items-center gap-2 mb-2 text-violet-300">
-              <Sparkles className="w-3.5 h-3.5" />
+          {/* Guidelines Box */}
+          <div className="mt-5 light-card p-4 sm:p-5">
+            <div className="flex items-center gap-2 mb-2 text-[#FF6B35]">
+              <Sparkles className="w-4 h-4" />
               <p className="text-xs font-bold uppercase tracking-wider">Tips for realistic AI try-on</p>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-gray-300">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-[#1E1B18] font-medium">
               <div className="flex items-center gap-1.5">
-                <span className="text-green-400 font-bold">✓</span> Full head & hair visible
+                <span className="text-emerald-600 font-bold">✓</span> Full head & hair visible
               </div>
               <div className="flex items-center gap-1.5">
-                <span className="text-green-400 font-bold">✓</span> Facing camera directly
+                <span className="text-emerald-600 font-bold">✓</span> Facing camera directly
               </div>
               <div className="flex items-center gap-1.5">
-                <span className="text-green-400 font-bold">✓</span> Clear natural lighting
+                <span className="text-emerald-600 font-bold">✓</span> Clear natural lighting
               </div>
               <div className="flex items-center gap-1.5">
-                <span className="text-green-400 font-bold">✓</span> Neutral background
+                <span className="text-emerald-600 font-bold">✓</span> Neutral background
               </div>
             </div>
           </div>
         </div>
       )}
 
-      {/* ── Mode: Live Camera ── */}
+      {/* Camera Mode */}
       {mode === 'camera' && (
         <div className="w-full fade-in-up">
           <div className="relative rounded-3xl overflow-hidden bg-black aspect-[3/4] w-full shadow-2xl border border-white/10">
@@ -259,10 +247,8 @@ export default function CameraCapture({ onCapture }: CameraCaptureProps) {
             />
             <canvas ref={canvasRef} className="hidden" />
 
-            {/* Face guide overlay */}
             <FaceGuide qualityChecks={qualityChecks} faceCount={faceCount} />
 
-            {/* Countdown overlay */}
             {countdown !== null && (
               <div className="absolute inset-0 flex items-center justify-center bg-black/50 z-20">
                 <span className="text-8xl sm:text-9xl font-black text-white drop-shadow-2xl animate-pulse">
@@ -271,7 +257,6 @@ export default function CameraCapture({ onCapture }: CameraCaptureProps) {
               </div>
             )}
 
-            {/* Top controls in camera viewfinder */}
             <div className="absolute top-3 left-3 right-3 flex items-center justify-between z-10 pointer-events-auto">
               <button
                 id="btn-camera-back-top"
@@ -282,19 +267,16 @@ export default function CameraCapture({ onCapture }: CameraCaptureProps) {
                 <RotateCcw className="w-4 h-4" />
               </button>
 
-              {/* Flip camera button */}
               <button
                 id="btn-camera-flip"
                 onClick={toggleCameraFacing}
                 className="w-10 h-10 rounded-full bg-black/60 backdrop-blur-md border border-white/15 flex items-center justify-center text-white active:scale-95 transition-transform"
-                title="Switch camera"
                 aria-label="Switch camera"
               >
                 <RefreshCw className="w-4 h-4" />
               </button>
             </div>
 
-            {/* Camera error state */}
             {cameraError && (
               <div className="absolute inset-0 flex items-center justify-center bg-black/90 p-6 z-30">
                 <div className="text-center max-w-xs">
@@ -303,7 +285,7 @@ export default function CameraCapture({ onCapture }: CameraCaptureProps) {
                   <button
                     id="btn-camera-upload-fallback"
                     onClick={() => { setMode('choice'); fileInputRef.current?.click(); }}
-                    className="btn-glow px-6 py-2.5 rounded-xl text-white text-xs font-bold w-full"
+                    className="btn-primary-accent px-6 py-2.5 text-xs font-bold w-full"
                   >
                     Upload from Photos Instead
                   </button>
@@ -311,86 +293,54 @@ export default function CameraCapture({ onCapture }: CameraCaptureProps) {
               </div>
             )}
 
-            {/* Bottom Shutter Bar inside Camera */}
             <div className="absolute bottom-4 left-0 right-0 flex flex-col items-center gap-2 z-10 pointer-events-auto px-4">
-              {/* Shutter Button */}
               <button
                 id="btn-capture-photo"
                 onClick={capturePhoto}
                 disabled={isCapturing || !!cameraError || !canCapture}
-                className="relative w-18 h-18 sm:w-20 sm:h-20 rounded-full flex items-center justify-center active:scale-95 transition-transform disabled:opacity-40 disabled:scale-100 disabled:cursor-not-allowed group cursor-pointer"
+                className="relative w-18 h-18 sm:w-20 sm:h-20 rounded-full flex items-center justify-center active:scale-95 transition-transform disabled:opacity-40 cursor-pointer group"
                 aria-label="Take Photo"
               >
-                {/* Outer Ring */}
                 <span className="absolute inset-0 rounded-full border-4 border-white/80 group-hover:border-white transition-colors" />
-                {/* Inner glowing circle */}
-                <span className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-gradient-to-tr from-violet-500 to-pink-500 group-hover:from-violet-400 group-hover:to-pink-400 transition-all flex items-center justify-center shadow-lg shadow-violet-600/40">
+                <span className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-[#FF6B35] flex items-center justify-center shadow-lg text-white">
                   {isCapturing ? (
-                    <Loader2 className="w-6 h-6 text-white spin" />
+                    <Loader2 className="w-6 h-6 spin" />
                   ) : (
-                    <Camera className="w-6 h-6 text-white" />
+                    <Camera className="w-6 h-6" />
                   )}
                 </span>
               </button>
 
-              <span className="text-[10px] text-white/70 backdrop-blur-sm px-2.5 py-0.5 rounded-full bg-black/40">
+              <span className="text-[10px] text-white/90 backdrop-blur-sm px-3 py-1 rounded-full bg-black/50">
                 {canCapture ? 'Tap shutter to take portrait' : 'Position face inside guide'}
               </span>
             </div>
           </div>
-
-          {/* Quality indicators pill list */}
-          {qualityChecks.length > 0 && (
-            <div className="mt-3 flex flex-wrap gap-1.5 justify-center">
-              {qualityChecks.filter(c => !c.passed).map((check, i) => (
-                <span
-                  key={i}
-                  className={`flex items-center gap-1 text-[11px] px-2.5 py-1 rounded-full ${
-                    check.severity === 'error'
-                      ? 'bg-red-500/20 text-red-300 border border-red-500/30'
-                      : 'bg-yellow-500/20 text-yellow-300 border border-yellow-500/30'
-                  }`}
-                >
-                  <AlertCircle className="w-3 h-3 shrink-0" />
-                  <span>{check.message}</span>
-                </span>
-              ))}
-              {passedChecks > 0 && errorChecks.length === 0 && warningChecks.length === 0 && (
-                <span className="flex items-center gap-1 text-[11px] px-3 py-1 rounded-full bg-green-500/20 text-green-300 border border-green-500/30 font-medium">
-                  <Check className="w-3 h-3" />
-                  Positioning looks great!
-                </span>
-              )}
-            </div>
-          )}
         </div>
       )}
 
-      {/* ── Mode: Photo Preview ── */}
+      {/* Preview Mode */}
       {mode === 'preview' && previewUrl && (
         <div className="w-full fade-in-up">
-          <div className="relative rounded-3xl overflow-hidden aspect-[3/4] bg-black shadow-2xl border border-white/10">
+          <div className="relative rounded-3xl overflow-hidden aspect-[3/4] bg-black shadow-xl border border-[#EBE6DE]">
             <img
               src={previewUrl}
               alt="Your portrait preview"
               className="w-full h-full object-cover object-top"
             />
-            {/* Gradient overlay for buttons */}
             <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/20 pointer-events-none" />
 
-            {/* Top confirmation badge */}
             <div className="absolute top-3 left-3 right-3 flex justify-center pointer-events-none">
               <span className="text-xs font-semibold px-3 py-1 rounded-full bg-black/60 text-white backdrop-blur-md border border-white/15">
                 Portrait captured
               </span>
             </div>
 
-            {/* Bottom floating action bar */}
             <div className="absolute bottom-4 left-4 right-4 flex gap-2.5">
               <button
                 id="btn-retake-photo"
                 onClick={handleRetake}
-                className="flex-1 flex items-center justify-center gap-1.5 py-3 rounded-2xl glass-card border border-white/20 text-white font-semibold text-xs sm:text-sm active:scale-95 transition-all shadow-lg"
+                className="flex-1 py-3 rounded-full bg-white/90 border border-[#EBE6DE] text-[#1E1B18] font-bold text-xs sm:text-sm active:scale-95 transition-all shadow-md flex items-center justify-center gap-1.5"
               >
                 <RotateCcw className="w-4 h-4" />
                 <span>Retake</span>
@@ -398,19 +348,15 @@ export default function CameraCapture({ onCapture }: CameraCaptureProps) {
               <button
                 id="btn-use-this-photo"
                 onClick={handleConfirm}
-                className="flex-1 btn-glow rounded-2xl py-3 text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-1.5 active:scale-95 transition-all shadow-lg shadow-violet-600/30"
+                className="flex-1 btn-primary-accent py-3 text-xs sm:text-sm flex items-center justify-center gap-1.5 shadow-md"
               >
                 <Check className="w-4 h-4" />
                 <span>Use This Photo</span>
               </button>
             </div>
           </div>
-          <p className="text-center text-xs text-gray-400 mt-2.5">
-            Face and natural hair are clearly framed for best virtual haircut accuracy
-          </p>
         </div>
       )}
     </div>
   );
 }
-

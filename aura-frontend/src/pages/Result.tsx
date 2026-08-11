@@ -1,9 +1,20 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
-import { Download, RotateCcw, Share2, Scissors, ArrowLeft, Sparkles, Check, AlertCircle } from 'lucide-react';
+import { Download, RotateCcw, Share2, Scissors, ArrowLeft, Sparkles, Check, AlertCircle, Heart, Star } from 'lucide-react';
 import BeforeAfter from '../components/BeforeAfter';
 import { getJobStatus, regenerateTryOn } from '../services/hairstyleService';
 import type { TryOnJob } from '../types/hairstyle';
+
+const resolveImageUrl = (url?: string | null): string => {
+  if (!url) return '';
+  if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('blob:') || url.startsWith('data:')) {
+    return url;
+  }
+  const rawBase = import.meta.env.VITE_API_BASE_URL || 'https://ai-saloon-production.up.railway.app';
+  const domain = rawBase.replace(/\/api\/?$/, '');
+  const cleanPath = url.startsWith('/') ? url : `/${url}`;
+  return `${domain}${cleanPath}`;
+};
 
 export default function Result() {
   const { jobId } = useParams<{ jobId: string }>();
@@ -15,8 +26,9 @@ export default function Result() {
   const [error, setError] = useState<string | null>(null);
   const [regenerating, setRegenerating] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [activeTab, setActiveTab] = useState<'result' | 'about' | 'reviews'>('result');
+  const [isFavorite, setIsFavorite] = useState(false);
 
-  // Demo mode params
   const demoBefore = searchParams.get('before');
   const demoStyle = searchParams.get('style');
   const isDemoMode = jobId === 'demo';
@@ -29,7 +41,21 @@ export default function Result() {
         sourceImageUrl: demoBefore || '',
         resultImageUrl: demoBefore || '',
         createdAt: new Date().toISOString(),
-        hairstyle: demoStyle ? { id: 0, name: demoStyle, slug: '', category: '', description: '', promptDetails: '', recommendedFaceShapes: [], hairTypes: [], length: 'short', maintenanceLevel: 'low', referenceImageUrl: '', isActive: true, sortOrder: 0 } : undefined,
+        hairstyle: demoStyle ? {
+          id: 0,
+          name: demoStyle,
+          slug: '',
+          category: 'Fade',
+          description: 'A clean, modern haircut styled by AI.',
+          promptDetails: '',
+          recommendedFaceShapes: ['oval', 'square'],
+          hairTypes: ['straight', 'wavy'],
+          length: 'short',
+          maintenanceLevel: 'low',
+          referenceImageUrl: '',
+          isActive: true,
+          sortOrder: 0
+        } : undefined,
       });
       setLoading(false);
       return;
@@ -79,20 +105,21 @@ export default function Result() {
   }, [job, navigate]);
 
   const handleDownload = useCallback(async () => {
-    if (!job?.resultImageUrl) return;
+    const targetUrl = resolveImageUrl(job?.resultImageUrl || job?.sourceImageUrl);
+    if (!targetUrl) return;
     try {
-      const response = await fetch(job.resultImageUrl);
+      const response = await fetch(targetUrl);
       const blob = await response.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `aura-ai-${job.hairstyle?.name ? job.hairstyle.name.toLowerCase().replace(/\s+/g, '-') : 'hairstyle'}.jpg`;
+      a.download = `aura-ai-${job?.hairstyle?.name ? job.hairstyle.name.toLowerCase().replace(/\s+/g, '-') : 'hairstyle'}.jpg`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
     } catch {
-      window.open(job.resultImageUrl, '_blank');
+      window.open(targetUrl, '_blank');
     }
   }, [job]);
 
@@ -117,13 +144,13 @@ export default function Result() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-animated flex items-center justify-center p-4">
-        <div className="text-center">
-          <div className="w-16 h-16 rounded-3xl bg-gradient-to-br from-violet-600 to-pink-600 pulse-glow mx-auto mb-4 flex items-center justify-center shadow-xl shadow-violet-600/40">
-            <Sparkles className="w-8 h-8 text-white spin" />
+      <div className="min-h-screen bg-[#FAF8F5] flex items-center justify-center p-4">
+        <div className="text-center light-card p-6 max-w-xs w-full">
+          <div className="w-12 h-12 rounded-full bg-[#FF6B35]/15 text-[#FF6B35] mx-auto mb-3 flex items-center justify-center">
+            <Sparkles className="w-6 h-6 spin" />
           </div>
-          <p className="text-white font-bold text-base mb-1">Rendering your transformation...</p>
-          <p className="text-xs text-gray-400">Applying fine hair texture details</p>
+          <p className="text-[#1E1B18] font-bold text-sm mb-1">Rendering Haircut AI...</p>
+          <p className="text-xs text-[#787069]">Applying fine strand texture and blending</p>
         </div>
       </div>
     );
@@ -131,14 +158,14 @@ export default function Result() {
 
   if (error || !job) {
     return (
-      <div className="min-h-screen bg-gradient-animated flex items-center justify-center p-4">
-        <div className="text-center glass-card border border-red-500/20 rounded-3xl p-6 sm:p-8 max-w-sm w-full">
-          <AlertCircle className="w-12 h-12 text-red-400 mx-auto mb-3" />
-          <h2 className="text-white font-bold text-lg mb-1">Something went wrong</h2>
-          <p className="text-gray-400 text-xs sm:text-sm mb-6">{error || 'Result not found'}</p>
+      <div className="min-h-screen bg-[#FAF8F5] flex items-center justify-center p-4">
+        <div className="text-center light-card p-6 max-w-xs w-full">
+          <AlertCircle className="w-10 h-10 text-red-500 mx-auto mb-2" />
+          <h2 className="text-[#1E1B18] font-bold text-base mb-1">Something went wrong</h2>
+          <p className="text-[#787069] text-xs mb-5">{error || 'Result not found'}</p>
           <button
             onClick={() => navigate('/tryon')}
-            className="btn-glow px-6 py-3 rounded-xl text-white font-bold text-xs sm:text-sm w-full"
+            className="btn-primary-accent px-5 py-2.5 text-xs sm:text-sm w-full"
           >
             Try Again
           </button>
@@ -147,114 +174,184 @@ export default function Result() {
     );
   }
 
+  const beforePhotoUrl = resolveImageUrl(job.sourceImageUrl);
+  const afterPhotoUrl = resolveImageUrl(job.resultImageUrl) || beforePhotoUrl;
+
   return (
-    <div className="min-h-screen bg-gradient-animated flex flex-col justify-between">
-      {/* Top Header Bar */}
-      <div className="sticky top-0 z-40 glass-card border-b border-white/5 px-4 sm:px-6 py-3 backdrop-blur-xl">
-        <div className="max-w-3xl mx-auto flex items-center justify-between">
-          <button
-            id="result-back-btn"
-            onClick={() => navigate('/tryon')}
-            className="flex items-center gap-1.5 text-gray-300 hover:text-white active:scale-95 transition-all text-xs sm:text-sm font-semibold py-1 px-2.5 rounded-xl bg-white/5"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            <span>New Try-On</span>
-          </button>
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-violet-500 to-pink-500 flex items-center justify-center">
-              <Scissors className="w-3.5 h-3.5 text-white" />
-            </div>
-            <span className="text-xs sm:text-sm font-extrabold text-white">Aura AI</span>
-          </div>
-        </div>
-      </div>
-
-      <div className="max-w-3xl mx-auto px-4 sm:px-6 py-6 sm:py-8 w-full flex-1 pb-safe-bottom">
-        {/* Header Badge */}
-        <div className="text-center mb-6 sm:mb-8 fade-in-up">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 mb-3">
-            <Check className="w-3.5 h-3.5 text-emerald-400" />
-            <span className="text-xs text-emerald-300 font-bold">Transformation complete</span>
-          </div>
-          <h1 className="text-2xl sm:text-4xl font-black text-white mb-1">
-            {job.hairstyle?.name || 'New Hairstyle'}
-          </h1>
-          <p className="text-xs sm:text-sm text-gray-400">Swipe or tap the slider to compare before and after</p>
-        </div>
-
-        {/* Before/After comparison slider */}
-        <div className="fade-in-up max-w-sm sm:max-w-md mx-auto">
-          <BeforeAfter
-            beforeUrl={job.sourceImageUrl || ''}
-            afterUrl={job.resultImageUrl || job.sourceImageUrl || ''}
-            beforeLabel="Before"
-            afterLabel={job.hairstyle?.name || 'After'}
-          />
-        </div>
-
-        {/* Mobile-optimized action buttons */}
-        <div className="flex flex-col sm:flex-row gap-2.5 sm:gap-3 mt-6 sm:mt-8 max-w-sm sm:max-w-md mx-auto fade-in-up">
-          {/* Download button */}
-          <button
-            id="btn-download-result"
-            onClick={handleDownload}
-            className="btn-glow flex-1 flex items-center justify-center gap-2 py-3.5 rounded-2xl text-white font-bold text-xs sm:text-sm shadow-lg shadow-violet-600/30 active:scale-95 transition-all"
-          >
-            <Download className="w-4 h-4" />
-            <span>Download Photo</span>
-          </button>
-
-          {/* Share button */}
-          <button
-            id="btn-share-result"
-            onClick={handleShare}
-            className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-2xl glass-card border border-white/15 text-white font-bold text-xs sm:text-sm hover:border-white/30 active:scale-95 transition-all"
-          >
-            {copied ? <Check className="w-4 h-4 text-emerald-400" /> : <Share2 className="w-4 h-4" />}
-            <span>{copied ? 'Link Copied!' : 'Share Look'}</span>
-          </button>
-
-          {/* Regenerate button (when available) */}
-          {!isDemoMode && (
+    <div className="min-h-screen bg-[#FAF8F5] text-[#1E1B18] flex flex-col justify-between relative pb-safe-bottom">
+      {/* Mobile Aligned Main Result Container */}
+      <main className="max-w-md mx-auto sm:max-w-xl md:max-w-3xl px-4 sm:px-6 py-5 w-full flex-1">
+        <div className="light-card overflow-hidden p-4 sm:p-5 mb-6">
+          {/* Top Control Bar */}
+          <div className="flex items-center justify-between mb-3.5">
             <button
-              id="btn-regenerate-result"
-              onClick={handleRegenerate}
-              disabled={regenerating}
-              className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-2xl glass-card border border-violet-500/30 text-violet-300 font-bold text-xs sm:text-sm hover:border-violet-500/60 active:scale-95 transition-all disabled:opacity-50"
+              onClick={() => navigate('/tryon')}
+              className="w-9 h-9 rounded-full bg-[#FAF8F5] border border-[#EBE6DE] flex items-center justify-center text-[#574F46] hover:text-[#1E1B18] hover:border-[#FF6B35] transition-all"
+              aria-label="Back"
             >
-              {regenerating ? (
-                <>
-                  <Sparkles className="w-4 h-4 spin text-violet-400" />
-                  <span>Regenerating...</span>
-                </>
-              ) : (
-                <>
-                  <RotateCcw className="w-4 h-4" />
-                  <span>Regenerate</span>
-                </>
-              )}
+              <ArrowLeft className="w-4 h-4" />
             </button>
+
+            <span className="text-[11px] font-bold text-[#FF6B35] bg-[#FF6B35]/10 px-3 py-1 rounded-full flex items-center gap-1">
+              <Check className="w-3.5 h-3.5" /> AI Try-On Ready
+            </span>
+
+            <button
+              onClick={() => setIsFavorite(!isFavorite)}
+              className={`w-9 h-9 rounded-full border flex items-center justify-center transition-all ${
+                isFavorite ? 'bg-red-50 border-red-200 text-red-500' : 'bg-[#FAF8F5] border-[#EBE6DE] text-[#574F46] hover:text-red-500'
+              }`}
+              aria-label="Favorite"
+            >
+              <Heart className={`w-4 h-4 ${isFavorite ? 'fill-red-500' : ''}`} />
+            </button>
+          </div>
+
+          {/* Before / After Slider */}
+          <div className="mb-5 rounded-2xl overflow-hidden shadow-sm border border-[#EBE6DE]">
+            <BeforeAfter
+              beforeUrl={beforePhotoUrl}
+              afterUrl={afterPhotoUrl}
+              beforeLabel="Before"
+              afterLabel={job.hairstyle?.name || 'After AI Haircut'}
+            />
+          </div>
+
+          {/* Hairstyle Title & Details */}
+          <div className="flex items-start justify-between mb-3.5">
+            <div>
+              <h1 className="text-lg sm:text-xl font-black text-[#1E1B18] mb-0.5">
+                {job.hairstyle?.name || 'Textured Hairstyle'}
+              </h1>
+              <div className="flex items-center gap-2 text-xs text-[#787069]">
+                <div className="flex items-center gap-1 text-[#FF6B35] font-bold">
+                  <Star className="w-3.5 h-3.5 fill-[#FF6B35]" />
+                  <span>4.9 (120 reviews)</span>
+                </div>
+                <span>·</span>
+                <span className="font-semibold text-[#FF6B35]">Pro Barber Style</span>
+              </div>
+            </div>
+
+            <button
+              onClick={() => navigate('/tryon')}
+              className="text-xs font-bold text-[#FF6B35] underline hover:text-[#E05A2B]"
+            >
+              Change Style
+            </button>
+          </div>
+
+          {/* Tab Selector Pills */}
+          <div className="flex gap-1.5 p-1 rounded-full bg-[#FAF8F5] border border-[#EBE6DE] mb-5">
+            {(['result', 'about', 'reviews'] as const).map((tab) => (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                className={`flex-1 py-1.5 rounded-full text-xs font-semibold capitalize transition-all ${
+                  activeTab === tab
+                    ? 'pill-light-active'
+                    : 'text-[#574F46] hover:text-[#1E1B18]'
+                }`}
+              >
+                {tab === 'result' ? 'Result View' : tab}
+              </button>
+            ))}
+          </div>
+
+          {/* Tab Content 1: Actions */}
+          {activeTab === 'result' && (
+            <div className="space-y-3">
+              <button
+                id="btn-download-result"
+                onClick={handleDownload}
+                className="btn-primary-accent w-full py-3 text-xs sm:text-sm flex items-center justify-center gap-2"
+              >
+                <Download className="w-4 h-4" />
+                <span>Save & Download Photo</span>
+              </button>
+
+              <div className="grid grid-cols-2 gap-2.5">
+                <button
+                  id="btn-share-result"
+                  onClick={handleShare}
+                  className="btn-secondary-light py-2.5 text-xs flex items-center justify-center gap-1.5"
+                >
+                  {copied ? <Check className="w-4 h-4 text-emerald-600" /> : <Share2 className="w-4 h-4" />}
+                  <span>{copied ? 'Link Copied!' : 'Share Look'}</span>
+                </button>
+
+                {!isDemoMode ? (
+                  <button
+                    id="btn-regenerate-result"
+                    onClick={handleRegenerate}
+                    disabled={regenerating}
+                    className="btn-secondary-light py-2.5 text-xs flex items-center justify-center gap-1.5 disabled:opacity-50"
+                  >
+                    {regenerating ? (
+                      <>
+                        <Sparkles className="w-4 h-4 spin text-[#FF6B35]" />
+                        <span>Rendering...</span>
+                      </>
+                    ) : (
+                      <>
+                        <RotateCcw className="w-4 h-4" />
+                        <span>Re-Generate</span>
+                      </>
+                    )}
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => navigate('/tryon')}
+                    className="btn-secondary-light py-2.5 text-xs flex items-center justify-center gap-1.5"
+                  >
+                    <Scissors className="w-4 h-4" />
+                    <span>Try Another</span>
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Tab Content 2: About */}
+          {activeTab === 'about' && (
+            <div className="text-xs text-[#574F46] leading-relaxed space-y-2">
+              <p className="font-medium text-[#1E1B18]">
+                {job.hairstyle?.description || 'Classic fade haircut generated with Gemini AI model.'}
+              </p>
+              <div className="pt-2 flex flex-wrap gap-2 text-[11px]">
+                <span className="px-3 py-1 rounded-full bg-[#FAF8F5] border border-[#EBE6DE] font-semibold text-[#1E1B18]">
+                  Length: {job.hairstyle?.length || 'Short'}
+                </span>
+                <span className="px-3 py-1 rounded-full bg-[#FAF8F5] border border-[#EBE6DE] font-semibold text-[#1E1B18]">
+                  Maintenance: {job.hairstyle?.maintenanceLevel || 'Low'}
+                </span>
+              </div>
+            </div>
+          )}
+
+          {/* Tab Content 3: Reviews */}
+          {activeTab === 'reviews' && (
+            <div className="space-y-2.5">
+              {[
+                { name: 'Alex M.', text: 'Super realistic! Showed this exact AI preview to my barber.', rating: 5 },
+                { name: 'David K.', text: 'The low fade preview was spot on. Highly recommended.', rating: 5 },
+              ].map((r, i) => (
+                <div key={i} className="p-3 rounded-xl bg-[#FAF8F5] border border-[#EBE6DE] text-xs">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="font-bold text-[#1E1B18]">{r.name}</span>
+                    <div className="flex text-[#FF6B35]">
+                      {[...Array(r.rating)].map((_, idx) => (
+                        <Star key={idx} className="w-3 h-3 fill-[#FF6B35]" />
+                      ))}
+                    </div>
+                  </div>
+                  <p className="text-[#574F46]">{r.text}</p>
+                </div>
+              ))}
+            </div>
           )}
         </div>
-
-        {/* Try another style button */}
-        <div className="text-center mt-6">
-          <button
-            id="btn-try-another-style"
-            onClick={() => navigate('/tryon')}
-            className="text-xs sm:text-sm font-semibold text-violet-400 hover:text-violet-300 active:scale-95 inline-flex items-center gap-1.5 py-2 px-4 rounded-xl bg-violet-500/10 border border-violet-500/20 transition-all"
-          >
-            <Scissors className="w-3.5 h-3.5" />
-            <span>Try a different hairstyle</span>
-          </button>
-        </div>
-
-        {/* AI Disclaimer */}
-        <p className="text-center text-[10px] sm:text-xs text-gray-500 mt-6 max-w-xs mx-auto">
-          Results are photorealistic AI visualizations created by Google Gemini.
-        </p>
-      </div>
+      </main>
     </div>
   );
 }
-

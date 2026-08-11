@@ -1,7 +1,11 @@
 import axios from 'axios';
 
-const rawBase = import.meta.env.VITE_API_BASE_URL || '/api';
-const API_BASE_URL = rawBase.endsWith('/') ? rawBase.slice(0, -1) : rawBase;
+let rawBase = (import.meta.env.VITE_API_BASE_URL || 'https://ai-saloon-production.up.railway.app').trim();
+if (rawBase.endsWith('/')) rawBase = rawBase.slice(0, -1);
+// Normalize base URL so endpoints starting with '/api' don't produce '/api/api'
+if (rawBase.endsWith('/api')) rawBase = rawBase.slice(0, -4);
+
+const API_BASE_URL = rawBase;
 
 const api = axios.create({
   baseURL: API_BASE_URL,
