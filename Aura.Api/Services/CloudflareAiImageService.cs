@@ -102,6 +102,55 @@ public class CloudflareAiImageService
 
         _logger.LogInformation("Cloudflare returned {Len} bytes", responseBytes.Length);
 
+        return ExtractImageBytes(responseBytes);
+    }
+
+    /// <summary>
+    /// Parses Cloudflare Workers AI JSON response to extract the base64 image string from result.image,
+    /// or returns raw bytes if already a binary PNG/JPEG.
+    /// </summary>
+    private byte[] ExtractImageBytes(byte[] responseBytes)
+    {
+        if (responseBytes == null || responseBytes.Length == 0)
+            return Array.Empty<byte>();
+
+        var firstByte = responseBytes.FirstOrDefault(b => !char.IsWhiteSpace((char)b));
+        if (firstByte == (byte)'{' || firstByte == (byte)'[')
+        {
+            try
+            {
+                var text = Encoding.UTF8.GetString(responseBytes);
+                using var doc = JsonDocument.Parse(text);
+                var root = doc.RootElement;
+
+                if (root.TryGetProperty("result", out var resultProp))
+                {
+                    if (resultProp.ValueKind == JsonValueKind.Object && resultProp.TryGetProperty("image", out var imgProp))
+                    {
+                        var b64 = imgProp.GetString();
+                        if (!string.IsNullOrEmpty(b64))
+                        {
+                            _logger.LogInformation("Extracted Base64 image ({Len} chars) from Cloudflare JSON response", b64.Length);
+                            return Convert.FromBase64String(b64);
+                        }
+                    }
+                    else if (resultProp.ValueKind == JsonValueKind.String)
+                    {
+                        var b64 = resultProp.GetString();
+                        if (!string.IsNullOrEmpty(b64))
+                        {
+                            _logger.LogInformation("Extracted Base64 image ({Len} chars) from Cloudflare string response", b64.Length);
+                            return Convert.FromBase64String(b64);
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Could not parse Cloudflare response as JSON base64 image; returning raw bytes.");
+            }
+        }
+
         return responseBytes;
     }
 
