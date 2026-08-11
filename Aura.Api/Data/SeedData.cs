@@ -7,9 +7,10 @@ public static class SeedData
 {
     public static async Task SeedAsync(AppDbContext db)
     {
-        if (await db.Hairstyles.AnyAsync())
+        var count = await db.Hairstyles.CountAsync();
+        if (count >= 15)
         {
-            // Update existing records with fal.ai fields if not populated
+            // All hairstyles present — patch any missing ProviderMode fields
             var existing = await db.Hairstyles.ToListAsync();
             var needsSave = false;
             foreach (var h in existing)
@@ -22,6 +23,13 @@ public static class SeedData
             }
             if (needsSave) await db.SaveChangesAsync();
             return;
+        }
+
+        // Partial or empty — delete whatever is there and re-seed cleanly
+        if (count > 0)
+        {
+            db.Hairstyles.RemoveRange(db.Hairstyles);
+            await db.SaveChangesAsync();
         }
 
         var hairstyles = new List<Hairstyle>
